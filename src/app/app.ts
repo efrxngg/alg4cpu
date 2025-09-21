@@ -143,10 +143,11 @@ const getRandomColor = () => {
             <div class="bg-white shadow-lg rounded-xl overflow-hidden p-6">
               <h2 class="text-xl font-bold mb-4">Control de Simulación y Algoritmos</h2>
               <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                <!-- Control de Selección de Algoritmo -->
                 <div class="flex-grow">
                   <label for="algorithm" class="block mb-2 font-semibold">Seleccionar Algoritmo:</label>
                   <select id="algorithm" [(ngModel)]="selectedAlgorithm" (ngModelChange)="runSimulation()"
-                          class="w-full p-2 border rounded-md">
+                          [disabled]="processes.length === 0" class="w-full p-2 border rounded-md">
                     <option value="">Seleccionar Algoritmo</option>
                     <option value="FCFS">First-Come, First-Served (FCFS)</option>
                     <option value="SJF">Shortest Job First (SJF)</option>
@@ -155,11 +156,20 @@ const getRandomColor = () => {
                     <option value="RR">Round Robin</option>
                   </select>
                 </div>
+                <!-- Campo de entrada para el quantum, solo visible para Round Robin -->
+                @if (selectedAlgorithm === 'RR') {
+                  <div class="flex-grow">
+                    <label for="quantum" class="block mb-2 font-semibold text-center">Quantum:</label>
+                    <input id="quantum" type="number" [(ngModel)]="quantumValue" (ngModelChange)="runSimulation()"
+                           class="w-full p-2 border rounded-md">
+                  </div>
+                }
+                <!-- Control de Comparación de Todos los Algoritmos -->
                 <div class="flex-grow">
-                  <label for="compare" class="block mb-2 font-semibold">Comparar Todos:</label>
+                  <label for="compare" class="block mb-2 font-semibold text-center">Comparar:</label>
                   <button (click)="compareAll()" [disabled]="processes.length === 0"
                           class="bg-black hover:bg-gray-800 text-white font-bold py-2 px-4 rounded-lg w-full transition-colors">
-                    Comparar
+                    Todos
                   </button>
                 </div>
               </div>
@@ -292,6 +302,7 @@ export class App {
 
   selectedAlgorithm = '';
   simulationFinished = false;
+  quantumValue = 10; // Valor por defecto del quantum
 
   // Getter para calcular el tiempo total de la simulación
   get totalTime(): number {
@@ -450,13 +461,12 @@ export class App {
   }
 
   // Ejecuta la simulación completa para un algoritmo dado
-  private runAlgorithm(algorithm: string) {
+  private runAlgorithm(algorithm: string, quantum?: number) {
     // Llama a una función auxiliar para obtener la cola ordenada
     const queue = this.sortProcesses(algorithm, this.processes);
     // Simula la ejecución y obtiene los resultados
-    // this.ganttChart = this.simulateQueue(queue);
     if (algorithm === 'RR') {
-      this.ganttChart = this.simulateQueueRR(queue, 2);
+      this.ganttChart = this.simulateQueueRR(queue, quantum!);
     } else {
       this.ganttChart = this.simulateQueue(queue);
     }
@@ -469,7 +479,11 @@ export class App {
   runSimulation() {
     this.clearSimulationOutput();
     if (this.selectedAlgorithm) {
-      this.runAlgorithm(this.selectedAlgorithm);
+      if (this.selectedAlgorithm === 'RR') {
+        this.runAlgorithm(this.selectedAlgorithm, this.quantumValue);
+      } else {
+        this.runAlgorithm(this.selectedAlgorithm);
+      }
       this.simulationFinished = true;
     }
   }
@@ -482,7 +496,7 @@ export class App {
     this.runAlgorithm('SJF');
     this.runAlgorithm('Priority');
     this.runAlgorithm('SJF_Priority');
-    this.runAlgorithm('RR');
+    this.runAlgorithm('RR', this.quantumValue);
     this.simulationFinished = true;
   }
 }

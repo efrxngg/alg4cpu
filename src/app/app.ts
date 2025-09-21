@@ -10,8 +10,6 @@ interface Process {
   priority: number;
   startTime?: number;
   endTime?: number;
-  lastStartTime?: number;
-  lastEndTime?: number;
   availableDuration?: number;
   averageWaitTime?: number;
   AverageExecutionTime?: number;
@@ -20,8 +18,8 @@ interface Process {
 interface GanttEvent {
   id: number;
   processName: string;
-  start: number;
-  end: number;
+  startTime: number;
+  endTime: number;
   color: string;
 }
 
@@ -170,10 +168,10 @@ const getRandomColor = () => {
             <div class="bg-white shadow-lg rounded-xl overflow-hidden p-6">
               <h2 class="text-xl font-bold mb-4">Diagrama de Gantt</h2>
               <div class="flex h-12 border-b-2 border-gray-400 relative">
-                @for (event of ganttChart; track event.start) {
+                @for (event of ganttChart; track event.startTime) {
                   <div
-                    [style.left.%]="(event.start / totalTime) * 100"
-                    [style.width.%]="((event.end - event.start) / totalTime) * 100"
+                    [style.left.%]="(event.startTime / totalTime) * 100"
+                    [style.width.%]="((event.endTime - event.startTime) / totalTime) * 100"
                     [style.backgroundColor]="event.color"
                     class="absolute h-12 flex items-center justify-center text-white text-xs font-bold transition-all duration-300 ease-in-out"
                     [class.rounded-l-lg]="$index === 0"
@@ -182,8 +180,8 @@ const getRandomColor = () => {
                     {{ event.processName }}
                   </div>
                   <div class="absolute -bottom-6 text-xs text-gray-600"
-                       [style.left.%]="(event.start / totalTime) * 100">
-                    {{ event.start }}
+                       [style.left.%]="(event.startTime / totalTime) * 100">
+                    {{ event.startTime }}
                   </div>
                 }
                 <div class="absolute -bottom-6 text-xs text-gray-600" [style.left.%]="100">
@@ -297,7 +295,7 @@ export class App {
 
   // Getter para calcular el tiempo total de la simulación
   get totalTime(): number {
-    return this.ganttChart.reduce((sum, event) => sum + (event.end - event.start), 0);
+    return this.ganttChart.reduce((sum, event) => sum + (event.endTime - event.startTime), 0);
   }
 
   // Agrega un nuevo proceso a la lista
@@ -384,11 +382,13 @@ export class App {
     while (queue.length > 0) {
       const currentProcess = queue.shift()!;
 
-      currentProcess.lastStartTime = currentTime;
+      const startTime = currentTime;
+      currentProcess.startTime = currentTime;
       currentTime = currentTime + currentProcess.duration
-      currentProcess.lastEndTime = currentTime;
+      currentProcess.endTime = currentTime;
+      const lastEndTime = currentTime;
 
-      this.addProcessToGanttQueue(currentGantt, currentProcess);
+      this.addProcessToGanttQueue(currentGantt, currentProcess, startTime, lastEndTime);
     }
 
     return currentGantt;
@@ -407,7 +407,7 @@ export class App {
       console.log(currentProcess);
       currentProcess.startTime ||= currentTime;
 
-      currentProcess.lastStartTime = currentTime;
+      const startTime = currentTime;
       let avalibleDuration = currentProcess.availableDuration! - quantun;
 
       if (avalibleDuration <= 0) {
@@ -420,24 +420,23 @@ export class App {
         auxQueue.push(currentProcess);
       }
 
-      currentProcess.lastEndTime = currentTime;
+      const endTime = currentTime;
 
-      this.addProcessToGanttQueue(currentGantt, currentProcess);
+      this.addProcessToGanttQueue(currentGantt, currentProcess, startTime, endTime);
     }
 
     return currentGantt;
   }
 
-  private addProcessToGanttQueue(currentGantt: GanttEvent[], currentProcess: Process) {
+  private addProcessToGanttQueue(currentGantt: GanttEvent[], currentProcess: Process, startTime: number, endTime: number) {
     const color = currentGantt
       .find(cgp => cgp.id === currentProcess.id)?.color || getRandomColor();
-
 
     currentGantt.push({
       id: currentProcess.id,
       processName: currentProcess.name,
-      start: currentProcess.lastStartTime!,
-      end: currentProcess.lastEndTime!,
+      startTime,
+      endTime,
       color,
     });
   }

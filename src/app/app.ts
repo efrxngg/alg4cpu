@@ -1,18 +1,24 @@
-import {ChangeDetectionStrategy, Component, computed, signal} from '@angular/core';
-import {CommonModule} from '@angular/common';
+import {Component} from '@angular/core';
+import {CommonModule, DecimalPipe, PercentPipe} from '@angular/common';
 import {FormsModule} from '@angular/forms';
 
 // Define las interfaces y clases para los procesos y métricas
 interface Process {
-  id: number;
+  id: number; // El id es el tiempo de llegada
   name: string;
   duration: number;
   priority: number;
-  arrivalTime: number;
-  initialDuration: number;
+  startTime?: number;
+  endTime?: number;
+  lastStartTime?: number;
+  lastEndTime?: number;
+  availableDuration?: number;
+  averageWaitTime?: number;
+  AverageExecutionTime?: number;
 }
 
 interface GanttEvent {
+  id: number;
   processName: string;
   start: number;
   end: number;
@@ -42,44 +48,39 @@ const getRandomColor = () => {
   imports: [
     CommonModule,
     FormsModule,
+    DecimalPipe,
+    PercentPipe
   ],
   template: `
     <div class="bg-gray-100 min-h-screen p-8 font-sans">
       <div class="container mx-auto max-w-7xl">
-        <h1 class="text-4xl font-extrabold text-center mb-10 text-gray-800">Simulador de Planificación de CPU</h1>
+        <h1 class="text-4xl font-extrabold text-left mb-10 text-gray-800">Alg4CPU</h1>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <!-- Panel de Ingreso de Procesos -->
           <div class="lg:col-span-1 bg-white shadow-lg rounded-xl overflow-hidden">
             <div class="p-6">
-              <h2 class="text-xl font-bold mb-4">Ingreso de Procesos</h2>
-              <div class="space-y-4">
-                <div class="relative">
-                  <input id="processName" type="text" [(ngModel)]="newProcessName" placeholder="Nombre del Proceso"
-                         class="w-full p-2 border rounded-md">
+              <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold">Ingreso de Procesos</h2>
+                <!-- Contenedor para la generación de procesos aleatorios -->
+                <div class="flex items-center gap-2">
+                  <input type="number" [(ngModel)]="randomProcessesCount" placeholder="Cantidad"
+                         class="w-24 p-2 border rounded-md">
+                  <button (click)="generateRandomProcesses()"
+                          class="bg-black text-white hover:bg-gray-800 font-bold py-2 px-4 rounded-lg transition-colors">
+                    Generar
+                  </button>
                 </div>
-                <div class="relative">
-                  <input id="duration" type="number" [(ngModel)]="newProcessDuration" placeholder="Duración (ms)"
-                         class="w-full p-2 border rounded-md">
-                </div>
-                <div class="relative">
-                  <input id="priority" type="number" [(ngModel)]="newProcessPriority" placeholder="Prioridad"
-                         class="w-full p-2 border rounded-md">
-                </div>
-                <button (click)="addProcess()" [disabled]="!newProcessName || !newProcessDuration"
-                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg w-full transition-colors">
-                  Agregar Proceso
-                </button>
               </div>
 
-              <div class="mt-6 overflow-x-auto">
+              <div class="mt-6 overflow-x-hidden overflow-y-auto max-h-[26rem]">
                 <table class="min-w-full divide-y divide-gray-200">
                   <thead class="bg-gray-50">
                   <tr>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre
                     </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Duración
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duración
+                      (ms)
                     </th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Prioridad
@@ -90,13 +91,41 @@ const getRandomColor = () => {
                   </tr>
                   </thead>
                   <tbody class="bg-white divide-y divide-gray-200">
-                  <tr *ngFor="let process of processes(); let rowIndex = index">
-                    <td class="px-6 py-4 whitespace-nowrap">{{ process.name }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">{{ process.duration }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">{{ process.priority }}</td>
+                    @for (process of processes; track process.id) {
+                      <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ process.name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ process.duration }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ process.priority }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                          <button (click)="removeProcess($index)" class="text-red-600 hover:text-red-900 font-medium">
+                            Eliminar
+                          </button>
+                        </td>
+                      </tr>
+                    }
+                  <!-- Nueva fila para agregar procesos, estilo Notion -->
+                  <tr>
+                    <td class="px-6 py-4">
+                      <input type="text" [(ngModel)]="newProcessName" placeholder="Nombre del Proceso"
+                             class="w-full p-1 border-0 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500">
+                    </td>
+                    <td class="px-6 py-4">
+                      <input type="number" [(ngModel)]="newProcessDuration" placeholder="0"
+                             class="w-full p-1 border-0 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500">
+                    </td>
+                    <td class="px-6 py-4">
+                      <input type="number" [(ngModel)]="newProcessPriority" placeholder="0"
+                             class="w-full p-1 border-0 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500">
+                    </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                      <button (click)="removeProcess(rowIndex)" class="text-red-600 hover:text-red-900 font-medium">
-                        Eliminar
+                      <button (click)="addProcess()" [disabled]="!newProcessName || !newProcessDuration"
+                              class="bg-transparent hover:bg-black/25 text-black hover:text-white font-bold py-1 px-3 rounded-lg w-full transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mx-auto" viewBox="0 0 20 20"
+                             fill="currentColor">
+                          <path fill-rule="evenodd"
+                                d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
+                                clip-rule="evenodd"/>
+                        </svg>
                       </button>
                     </td>
                   </tr>
@@ -104,37 +133,35 @@ const getRandomColor = () => {
                 </table>
               </div>
 
-              <button (click)="resetSimulation()"
+              <button (click)="killAllProcesses()"
                       class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg w-full mt-6 transition-colors">
-                Reiniciar Simulación
+                Terminar Procesos
               </button>
             </div>
           </div>
 
           <!-- Panel de Simulación y Métricas -->
-          <div class="lg:col-span-2 space-y-8">
+          <div class="lg:col-span-1 space-y-8">
             <div class="bg-white shadow-lg rounded-xl overflow-hidden p-6">
               <h2 class="text-xl font-bold mb-4">Control de Simulación y Algoritmos</h2>
               <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
                 <div class="flex-grow">
                   <label for="algorithm" class="block mb-2 font-semibold">Seleccionar Algoritmo:</label>
-                  <select id="algorithm" [(ngModel)]="selectedAlgorithm" class="w-full p-2 border rounded-md">
+                  <select id="algorithm" [(ngModel)]="selectedAlgorithm" (ngModelChange)="runSimulation()"
+                          class="w-full p-2 border rounded-md">
+                    <option value="">Seleccionar Algoritmo</option>
                     <option value="FCFS">First-Come, First-Served (FCFS)</option>
                     <option value="SJF">Shortest Job First (SJF)</option>
+                    <option value="Priority">Prioridad</option>
+                    <option value="SJF_Priority">SJF con Prioridad</option>
+                    <option value="RR">Round Robin</option>
                   </select>
                 </div>
                 <div class="flex-grow">
-                  <label for="step" class="block mb-2 font-semibold">Paso a Paso:</label>
-                  <button (click)="nextStep()" [disabled]="simulationFinished()"
-                          class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg w-full transition-colors">
-                    Siguiente Paso
-                  </button>
-                </div>
-                <div class="flex-grow">
-                  <label for="run" class="block mb-2 font-semibold">Ejecutar Completo:</label>
-                  <button (click)="runSimulation()" [disabled]="simulationFinished()"
-                          class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg w-full transition-colors">
-                    Ejecutar
+                  <label for="compare" class="block mb-2 font-semibold">Comparar Todos:</label>
+                  <button (click)="compareAll()" [disabled]="processes.length === 0"
+                          class="bg-black hover:bg-gray-800 text-white font-bold py-2 px-4 rounded-lg w-full transition-colors">
+                    Comparar
                   </button>
                 </div>
               </div>
@@ -143,24 +170,24 @@ const getRandomColor = () => {
             <div class="bg-white shadow-lg rounded-xl overflow-hidden p-6">
               <h2 class="text-xl font-bold mb-4">Diagrama de Gantt</h2>
               <div class="flex h-12 border-b-2 border-gray-400 relative">
-                <ng-container *ngFor="let event of ganttChart(); let i = index">
+                @for (event of ganttChart; track event.start) {
                   <div
-                    [style.left.%]="(event.start / totalTime()) * 100"
-                    [style.width.%]="((event.end - event.start) / totalTime()) * 100"
+                    [style.left.%]="(event.start / totalTime) * 100"
+                    [style.width.%]="((event.end - event.start) / totalTime) * 100"
                     [style.backgroundColor]="event.color"
                     class="absolute h-12 flex items-center justify-center text-white text-xs font-bold transition-all duration-300 ease-in-out"
-                    [class.rounded-l-lg]="i === 0"
-                    [class.rounded-r-lg]="i === ganttChart().length - 1"
+                    [class.rounded-l-lg]="$index === 0"
+                    [class.rounded-r-lg]="$index === ganttChart.length - 1"
                   >
                     {{ event.processName }}
                   </div>
                   <div class="absolute -bottom-6 text-xs text-gray-600"
-                       [style.left.%]="(event.start / totalTime()) * 100">
+                       [style.left.%]="(event.start / totalTime) * 100">
                     {{ event.start }}
                   </div>
-                </ng-container>
+                }
                 <div class="absolute -bottom-6 text-xs text-gray-600" [style.left.%]="100">
-                  {{ totalTime() }}
+                  {{ totalTime }}
                 </div>
               </div>
             </div>
@@ -186,12 +213,14 @@ const getRandomColor = () => {
                   </tr>
                   </thead>
                   <tbody class="bg-white divide-y divide-gray-200">
-                  <tr *ngFor="let metric of metrics()">
-                    <td class="px-6 py-4 whitespace-nowrap">{{ metric.algorithm }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">{{ metric.avgWaitTime | number:'1.2-2' }} ms</td>
-                    <td class="px-6 py-4 whitespace-nowrap">{{ metric.avgTurnaroundTime | number:'1.2-2' }} ms</td>
-                    <td class="px-6 py-4 whitespace-nowrap">{{ metric.cpuUtilization | percent:'1.2-2' }}</td>
-                  </tr>
+                    @for (metric of metrics; track metric.algorithm) {
+                      <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ metric.algorithm }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ metric.avgWaitTime | number:'1.2-2' }} ms</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ metric.avgTurnaroundTime | number:'1.2-2' }} ms</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ metric.cpuUtilization | percent:'1.2-2' }}</td>
+                      </tr>
+                    }
                   </tbody>
                 </table>
               </div>
@@ -200,13 +229,17 @@ const getRandomColor = () => {
             <div class="bg-white shadow-lg rounded-xl overflow-hidden p-6">
               <h2 class="text-xl font-bold mb-4">Logs de Simulación</h2>
               <div class="p-4 bg-gray-50 rounded-lg max-h-60 overflow-y-auto">
-                <div *ngFor="let msg of messages()" class="mb-2 p-2 rounded-md" [ngClass]="{
-                  'bg-blue-100 text-blue-800': msg.severity === 'info',
-                  'bg-green-100 text-green-800': msg.severity === 'success'
-                }">
-                  <p class="font-semibold">{{ msg.summary }}</p>
-                  <p class="text-sm" *ngIf="msg.detail">{{ msg.detail }}</p>
-                </div>
+                @for (msg of messages; track msg.summary) {
+                  <div class="mb-2 p-2 rounded-md" [ngClass]="{
+                    'bg-blue-100 text-blue-800': msg.severity === 'info',
+                    'bg-green-100 text-green-800': msg.severity === 'success'
+                  }">
+                    <p class="font-semibold">{{ msg.summary }}</p>
+                    @if (msg.detail) {
+                      <p class="text-sm">{{ msg.detail }}</p>
+                    }
+                  </div>
+                }
               </div>
             </div>
           </div>
@@ -246,169 +279,210 @@ const getRandomColor = () => {
       }
     }
   `],
-  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class App {
-  // Estado de la aplicación usando señales
-  processes = signal<Process[]>([]);
-  messages = signal<any[]>([]); // Cambiado a 'any' para evitar errores de tipo con 'severity'
-  metrics = signal<Metrics[]>([]);
-  ganttChart = signal<GanttEvent[]>([]);
+  // Estado de la aplicación
+  processes: Process[] = [];
+  messages: any[] = [];
+  metrics: Metrics[] = [];
+  ganttChart: GanttEvent[] = [];
 
   newProcessName = '';
   newProcessDuration = 0;
   newProcessPriority = 0;
+  randomProcessesCount = 5;
 
-  selectedAlgorithm = 'FCFS';
-  simulationFinished = signal(false);
-  simulationStep = signal(0);
-  private simulationState: {
-    queue: Process[];
-    currentTime: number;
-    gantt: GanttEvent[];
-    logs: any[];
-  } | null = null;
-  private processedProcesses: {
-    process: Process;
-    completionTime: number;
-    waitTime: number;
-    turnaroundTime: number;
-  }[] = [];
+  selectedAlgorithm = '';
+  simulationFinished = false;
 
-  // Señal computada para calcular el tiempo total de la simulación
-  totalTime = computed(() => {
-    return this.ganttChart().reduce((sum, event) => sum + (event.end - event.start), 0);
-  });
+  // Getter para calcular el tiempo total de la simulación
+  get totalTime(): number {
+    return this.ganttChart.reduce((sum, event) => sum + (event.end - event.start), 0);
+  }
 
   // Agrega un nuevo proceso a la lista
   addProcess() {
     if (this.newProcessName && this.newProcessDuration) {
       const newProcess: Process = {
-        id: this.processes().length,
+        id: this.processes.length,
         name: this.newProcessName,
         duration: this.newProcessDuration,
         priority: this.newProcessPriority || 0,
-        arrivalTime: 0, // Simplificación: todos llegan al mismo tiempo
-        initialDuration: this.newProcessDuration,
       };
-      this.processes.update(procs => [...procs, newProcess]);
+      this.processes = [...this.processes, newProcess];
       this.newProcessName = '';
       this.newProcessDuration = 0;
       this.newProcessPriority = 0;
     }
   }
 
+  // Genera procesos aleatorios y los añade a la lista
+  generateRandomProcesses() {
+    if (this.randomProcessesCount > 0) {
+      for (let i = 0; i < this.randomProcessesCount; i++) {
+        const randomDuration = Math.floor(Math.random() * 50) + 1; // Duración entre 1 y 50
+        const randomPriority = Math.floor(Math.random() * 10) + 1; // Prioridad entre 1 y 10
+        const newProcess: Process = {
+          id: i,
+          name: `P${i}`,
+          duration: randomDuration,
+          priority: randomPriority
+        };
+        this.processes = [...this.processes, newProcess];
+      }
+    }
+  }
+
   // Remueve un proceso de la lista
   removeProcess(index: number) {
-    this.processes.update(procs => procs.filter((_, i) => i !== index));
+    this.processes = this.processes.filter((_, i) => i !== index);
   }
 
-  // Reinicia la simulación
-  resetSimulation() {
-    this.ganttChart.set([]);
-    this.messages.set([]);
-    this.metrics.set([]);
-    this.simulationFinished.set(false);
-    this.simulationStep.set(0);
-    this.simulationState = null;
-    this.processedProcesses = [];
+  // Limpia la salida de la simulación
+  clearSimulationOutput() {
+    this.ganttChart = [];
+    this.messages = [];
+    this.metrics = [];
+    this.simulationFinished = false;
   }
 
-  // Inicia la simulación en un estado inicial
-  private initializeSimulation() {
-    this.resetSimulation();
-    const processesCopy = [...this.processes()];
-    this.simulationState = {
-      queue: [],
-      currentTime: 0,
-      gantt: [],
-      logs: [],
-    };
-    if (this.selectedAlgorithm === 'FCFS') {
-      this.simulationState.queue = processesCopy;
-      this.simulationState.logs.push({severity: 'info', summary: 'Simulación FCFS iniciada.'});
-    } else if (this.selectedAlgorithm === 'SJF') {
-      // Ordena por duración para SJF
-      this.simulationState.queue = processesCopy.sort((a, b) => a.duration - b.duration);
-      this.simulationState.logs.push({severity: 'info', summary: 'Simulación SJF iniciada.'});
+  // Elimina todos los procesos y limpia la simulación
+  killAllProcesses() {
+    this.processes = [];
+    this.clearSimulationOutput();
+  }
+
+  // Función auxiliar para ordenar los procesos según el algoritmo
+  private sortProcesses(algorithm: string, processes: Process[]): Process[] {
+    const processesCopy = [...processes];
+    switch (algorithm) {
+      case 'SJF':
+        return processesCopy.sort((a, b) => a.duration - b.duration);
+      case 'Priority':
+        return processesCopy.sort((a, b) => a.priority - b.priority);
+      case 'SJF_Priority':
+        return processesCopy.sort((a, b) => {
+          // Si tienen prioridades diferentes evalua por priridad
+          if (a.priority !== b.priority) {
+            return a.priority - b.priority;
+          }
+          // Si son iguales evalua por duracion
+          return a.duration - b.duration;
+        });
+      case 'FCFS':
+      case 'RR':
+      default:
+        return processesCopy;
     }
-    this.messages.set(this.simulationState.logs);
   }
 
-  // Ejecuta un solo paso de la simulación
-  nextStep() {
-    if (!this.simulationState) {
-      this.initializeSimulation();
+  // Simula la ejecución de una cola de procesos y genera los datos de Gantt
+  private simulateQueue(queue: Process[]) {
+    let currentTime = 0;
+    const currentGantt: GanttEvent[] = [];
+
+    while (queue.length > 0) {
+      const currentProcess = queue.shift()!;
+
+      currentProcess.lastStartTime = currentTime;
+      currentTime = currentTime + currentProcess.duration
+      currentProcess.lastEndTime = currentTime;
+
+      this.addProcessToGanttQueue(currentGantt, currentProcess);
     }
 
-    if (this.simulationState!.queue.length > 0) {
-      const currentProcess = this.simulationState!.queue.shift();
-      const startTime = this.simulationState!.currentTime;
-      const endTime = startTime + currentProcess!.duration;
-      this.simulationState!.currentTime = endTime;
+    return currentGantt;
+  }
 
-      const completionTime = endTime;
-      const turnaroundTime = completionTime - currentProcess!.arrivalTime;
-      const waitTime = turnaroundTime - currentProcess!.initialDuration;
+  private simulateQueueRR(queue: Process[], quantun: number) {
+    const auxQueue: Process[] = [...queue];
+    auxQueue.forEach((p) => p.availableDuration = p.duration);
 
-      this.processedProcesses.push({
-        process: currentProcess!,
-        completionTime,
-        waitTime,
-        turnaroundTime
-      });
+    let currentTime = 0;
+    const currentGantt: GanttEvent[] = [];
 
-      this.simulationState!.gantt.push({
-        processName: currentProcess!.name,
-        start: startTime,
-        end: endTime,
-        color: getRandomColor(),
-      });
-      this.ganttChart.set(this.simulationState!.gantt);
-      this.simulationState!.logs.push({
-        severity: 'success',
-        summary: `Proceso '${currentProcess!.name}' finalizado.`,
-        detail: `Inicio: ${startTime}, Fin: ${endTime}`
-      });
-      this.messages.set(this.simulationState!.logs);
-      this.simulationStep.update(step => step + 1);
+    while (auxQueue.length > 0) {
+      const currentProcess = auxQueue.shift()!;
+      // Si el tiempo de inicio no existe lo setea
+      console.log(currentProcess);
+      currentProcess.startTime ||= currentTime;
 
-      if (this.simulationState!.queue.length === 0) {
-        this.finishSimulation();
+      currentProcess.lastStartTime = currentTime;
+      let avalibleDuration = currentProcess.availableDuration! - quantun;
+
+      if (avalibleDuration <= 0) {
+        currentTime += currentProcess.availableDuration!;
+        currentProcess.availableDuration = avalibleDuration;
+        currentProcess.endTime = currentTime;
+      } else {
+        currentTime += quantun;
+        currentProcess.availableDuration = avalibleDuration;
+        auxQueue.push(currentProcess);
       }
+
+      currentProcess.lastEndTime = currentTime;
+
+      this.addProcessToGanttQueue(currentGantt, currentProcess);
+    }
+
+    return currentGantt;
+  }
+
+  private addProcessToGanttQueue(currentGantt: GanttEvent[], currentProcess: Process) {
+    const color = currentGantt
+      .find(cgp => cgp.id === currentProcess.id)?.color || getRandomColor();
+
+
+    currentGantt.push({
+      id: currentProcess.id,
+      processName: currentProcess.name,
+      start: currentProcess.lastStartTime!,
+      end: currentProcess.lastEndTime!,
+      color,
+    });
+  }
+
+// Calcula las métricas de rendimiento y actualiza el estado
+  private calculateMetrics(algorithm: string, process: Process[]) {
+
+
+    this.messages = [...this.messages, {severity: 'success', summary: `Simulación ${algorithm} finalizada.`}];
+  }
+
+  // Ejecuta la simulación completa para un algoritmo dado
+  private runAlgorithm(algorithm: string) {
+    // Llama a una función auxiliar para obtener la cola ordenada
+    const queue = this.sortProcesses(algorithm, this.processes);
+    // Simula la ejecución y obtiene los resultados
+    // this.ganttChart = this.simulateQueue(queue);
+    if (algorithm === 'RR') {
+      this.ganttChart = this.simulateQueueRR(queue, 2);
     } else {
-      this.finishSimulation();
+      this.ganttChart = this.simulateQueue(queue);
     }
+
+    // Calcula las métricas y actualiza el estado
+    this.calculateMetrics(algorithm, queue);
   }
 
-  // Ejecuta la simulación completa
+  // Ejecuta la simulación completa con el algoritmo seleccionado
   runSimulation() {
-    this.initializeSimulation();
-    while (this.simulationState!.queue.length > 0) {
-      this.nextStep();
+    this.clearSimulationOutput();
+    if (this.selectedAlgorithm) {
+      this.runAlgorithm(this.selectedAlgorithm);
+      this.simulationFinished = true;
     }
   }
 
-  // Finaliza la simulación y calcula las métricas
-  private finishSimulation() {
-    this.simulationFinished.set(true);
-    this.messages.update(msgs => [...msgs, {severity: 'success', summary: 'Simulación finalizada.'}]);
-
-    // Calcula métricas
-    const totalProcesses = this.processedProcesses.length;
-    const totalWaitTime = this.processedProcesses.reduce((sum, p) => sum + p.waitTime, 0);
-    const totalTurnaroundTime = this.processedProcesses.reduce((sum, p) => sum + p.turnaroundTime, 0);
-    const totalCpuTime = this.processes().reduce((sum, p) => sum + p.duration, 0);
-
-    const avgWaitTime = totalWaitTime / totalProcesses;
-    const avgTurnaroundTime = totalTurnaroundTime / totalProcesses;
-    const cpuUtilization = totalCpuTime / this.simulationState!.currentTime;
-
-    this.metrics.update(m => [...m, {
-      algorithm: this.selectedAlgorithm,
-      avgWaitTime: avgWaitTime,
-      avgTurnaroundTime: avgTurnaroundTime,
-      cpuUtilization: cpuUtilization,
-    }]);
+  // Compara todos los algoritmos
+  compareAll() {
+    this.clearSimulationOutput();
+    this.messages = [...this.messages, {severity: 'info', summary: 'Comparando todos los algoritmos.'}];
+    this.runAlgorithm('FCFS');
+    this.runAlgorithm('SJF');
+    this.runAlgorithm('Priority');
+    this.runAlgorithm('SJF_Priority');
+    this.runAlgorithm('RR');
+    this.simulationFinished = true;
   }
 }

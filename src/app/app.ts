@@ -346,6 +346,7 @@ export class App {
 
   // Elimina todos los procesos y limpia la simulación
   killAllProcesses() {
+    this.selectedAlgorithm = '';
     this.processes = [];
     this.clearSimulationOutput();
   }

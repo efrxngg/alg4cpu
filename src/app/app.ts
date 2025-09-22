@@ -238,7 +238,8 @@ const getRandomColor = () => {
                 @for (msg of messages; track msg.summary) {
                   <div class="mb-2 p-2 rounded-md" [ngClass]="{
                     'bg-blue-100 text-blue-800': msg.severity === 'info',
-                    'bg-green-100 text-green-800': msg.severity === 'success'
+                    'bg-green-100 text-green-800': msg.severity === 'success',
+                    'bg-red-100 text-red-800': msg.severity === 'error'
                   }">
                     <p class="font-semibold">{{ msg.summary }}</p>
                     @if (msg.detail) {
@@ -494,6 +495,14 @@ export class App {
     this.clearSimulationOutput();
     if (this.selectedAlgorithm) {
       if (this.selectedAlgorithm === 'RR') {
+        if (this.quantumValue <= 0) {
+          this.messages = [...this.messages, {
+            severity: 'error',
+            summary: 'Error de Simulación',
+            detail: 'El valor de quantum no puede ser menor o igual a 0.'
+          }];
+          return;
+        }
         this.runAlgorithm(this.selectedAlgorithm, this.quantumValue);
       } else {
         this.runAlgorithm(this.selectedAlgorithm);
@@ -505,6 +514,14 @@ export class App {
   // Compara todos los algoritmos
   compareAll() {
     this.clearSimulationOutput();
+    if (this.quantumValue <= 0) {
+      this.messages = [...this.messages, {
+        severity: 'error',
+        summary: 'Error de Simulación',
+        detail: 'El valor de quantum no puede ser menor o igual a 0.'
+      }];
+      return;
+    }
     this.messages = [...this.messages, {severity: 'info', summary: 'Comparando todos los algoritmos.'}];
     this.runAlgorithm('FCFS');
     this.runAlgorithm('SJF');

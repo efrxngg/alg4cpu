@@ -48,7 +48,7 @@ const getRandomColor = () => {
     PercentPipe
   ],
   template: `
-    <div class="bg-gray-100 min-h-screen p-8 font-sans">
+    <div class="bg-gray-200 min-h-screen p-8 font-sans">
       <div class="container mx-auto max-w-7xl">
         <h1 class="text-4xl font-extrabold text-left mb-10 text-gray-800">Alg4CPU</h1>
 

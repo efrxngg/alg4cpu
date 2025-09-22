@@ -458,9 +458,9 @@ export class App {
     let avgExecutionTime = 0, avgWaitTime = 0;
 
     process.forEach(p => {
-      // Tiempo promedio de respuesta: T=Fin-t_llegada
+      // Tiempo promedio de respuesta: T = Fin - t_llegada
       const responseTime = p.endTime! - p.id;
-      // Tiempo promedio de espera: E=T-t_ejecucion
+      // Tiempo promedio de espera: E = T - t_ejecucion
       const waitTime = responseTime - p.duration;
 
       avgExecutionTime += responseTime

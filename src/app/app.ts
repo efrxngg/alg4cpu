@@ -454,7 +454,8 @@ export class App {
   }
 
 // Calcula las métricas de rendimiento y actualiza el estado
-  private calculateMetrics(algorithm: string, processes: Process[]) {
+  private calculateMetricsRR(algorithm: string, processes: Process[]) {
+    console.log({processes});
     let avgExecutionTime = 0, avgWaitTime = 0;
 
     processes.forEach(p => {
@@ -475,19 +476,41 @@ export class App {
     return {algorithm, avgExecutionTime, avgWaitTime} as MetricsResult;
   }
 
+  // Calcula las métricas de rendimiento y actualiza el estado
+  private calculateMetrics(algorithm: string, processes: Process[]) {
+    let averageReturnTime = 0, avgWaitTime = 0;
+
+    processes.forEach(p => {
+      // Tiempo promedio de respuesta
+      averageReturnTime += p.endTime!;
+      // Tiempo promedio de espera
+      avgWaitTime += p.startTime!;
+    });
+
+    averageReturnTime /= processes.length;
+    avgWaitTime /= processes.length;
+
+    this.messages = [...this.messages, {severity: 'success', summary: `Simulación ${algorithm} finalizada.`}];
+    console.log({algorithm, avgExecutionTime: averageReturnTime, avgWaitTime, pLength: processes.length});
+    return {algorithm, avgExecutionTime: averageReturnTime, avgWaitTime} as MetricsResult;
+  }
+
   // Ejecuta la simulación completa para un algoritmo dado
   private runAlgorithm(algorithm: string, quantum?: number) {
     // Llama a una función auxiliar para obtener la cola ordenada
     const queue = this.sortProcesses(algorithm, this.processes);
+    let metricsResult: MetricsResult;
     // Simula la ejecución y obtiene los resultados
     if (algorithm === 'RR') {
       this.ganttChart = this.simulateQueueRR(queue, quantum!);
+      metricsResult = this.calculateMetricsRR(algorithm, queue);
     } else {
       this.ganttChart = this.simulateQueue(queue);
+      metricsResult = this.calculateMetrics(algorithm, queue);
     }
 
     // Calcula las métricas y actualiza el estado
-    this.metrics = [this.calculateMetrics(algorithm, queue)];
+    this.metrics = [...this.metrics, metricsResult];
   }
 
   // Ejecuta la simulación completa con el algoritmo seleccionado

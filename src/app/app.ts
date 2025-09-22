@@ -11,8 +11,6 @@ interface Process {
   startTime?: number;
   endTime?: number;
   availableDuration?: number;
-  averageWaitTime?: number;
-  AverageExecutionTime?: number;
 }
 
 interface GanttEvent {
@@ -23,10 +21,10 @@ interface GanttEvent {
   color: string;
 }
 
-interface Metrics {
+interface MetricsResult {
   algorithm: string;
   avgWaitTime: number;
-  avgTurnaroundTime: number;
+  avgExecutionTime: number;
   cpuUtilization: number;
 }
 
@@ -225,7 +223,7 @@ const getRandomColor = () => {
                       <tr>
                         <td class="px-6 py-4 whitespace-nowrap">{{ metric.algorithm }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">{{ metric.avgWaitTime | number:'1.2-2' }} ms</td>
-                        <td class="px-6 py-4 whitespace-nowrap">{{ metric.avgTurnaroundTime | number:'1.2-2' }} ms</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ metric.avgExecutionTime | number:'1.2-2' }} ms</td>
                         <td class="px-6 py-4 whitespace-nowrap">{{ metric.cpuUtilization | percent:'1.2-2' }}</td>
                       </tr>
                     }
@@ -292,7 +290,7 @@ export class App {
   // Estado de la aplicación
   processes: Process[] = [];
   messages: any[] = [];
-  metrics: Metrics[] = [];
+  metrics: MetricsResult[] = [];
   ganttChart: GanttEvent[] = [];
 
   newProcessName = '';
@@ -388,11 +386,12 @@ export class App {
 
   // Simula la ejecución de una cola de procesos y genera los datos de Gantt
   private simulateQueue(queue: Process[]) {
+    const auxQueue: Process[] = [...queue];
     let currentTime = 0;
     const currentGantt: GanttEvent[] = [];
 
-    while (queue.length > 0) {
-      const currentProcess = queue.shift()!;
+    while (auxQueue.length > 0) {
+      const currentProcess = auxQueue.shift()!;
 
       const startTime = currentTime;
       currentProcess.startTime = currentTime;
@@ -455,9 +454,24 @@ export class App {
 
 // Calcula las métricas de rendimiento y actualiza el estado
   private calculateMetrics(algorithm: string, process: Process[]) {
+    let avgExecutionTime = 0, avgWaitTime = 0;
 
+    process.forEach(p => {
+      // Tiempo promedio de respuesta: T=Fin-t_llegada
+      const responseTime = p.endTime! - p.id;
+      // Tiempo promedio de espera: E=T-t_ejecucion
+      const waitTime = responseTime - p.duration;
+
+      avgExecutionTime += responseTime
+      avgWaitTime += waitTime;
+    });
+
+    avgExecutionTime /= process.length;
+    avgWaitTime /= process.length;
 
     this.messages = [...this.messages, {severity: 'success', summary: `Simulación ${algorithm} finalizada.`}];
+    console.log({algorithm, avgExecutionTime, avgWaitTime, pLength: process.length});
+    return {algorithm, avgExecutionTime, avgWaitTime} as MetricsResult
   }
 
   // Ejecuta la simulación completa para un algoritmo dado
@@ -472,7 +486,7 @@ export class App {
     }
 
     // Calcula las métricas y actualiza el estado
-    this.calculateMetrics(algorithm, queue);
+    this.metrics = [this.calculateMetrics(algorithm, queue)];
   }
 
   // Ejecuta la simulación completa con el algoritmo seleccionado

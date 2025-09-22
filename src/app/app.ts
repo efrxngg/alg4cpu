@@ -454,25 +454,25 @@ export class App {
   }
 
 // Calcula las métricas de rendimiento y actualiza el estado
-  private calculateMetrics(algorithm: string, process: Process[]) {
+  private calculateMetrics(algorithm: string, processes: Process[]) {
     let avgExecutionTime = 0, avgWaitTime = 0;
 
-    process.forEach(p => {
+    processes.forEach(p => {
       // Tiempo promedio de respuesta: T = Fin - t_llegada
-      const responseTime = p.endTime! - p.id;
+      const executionTime = p.endTime! - p.id;
       // Tiempo promedio de espera: E = T - t_ejecucion
-      const waitTime = responseTime - p.duration;
+      const waitTime = executionTime - p.duration;
 
-      avgExecutionTime += responseTime
+      avgExecutionTime += executionTime
       avgWaitTime += waitTime;
     });
 
-    avgExecutionTime /= process.length;
-    avgWaitTime /= process.length;
+    avgExecutionTime /= processes.length;
+    avgWaitTime /= processes.length;
 
     this.messages = [...this.messages, {severity: 'success', summary: `Simulación ${algorithm} finalizada.`}];
-    console.log({algorithm, avgExecutionTime, avgWaitTime, pLength: process.length});
-    return {algorithm, avgExecutionTime, avgWaitTime} as MetricsResult
+    console.log({algorithm, avgExecutionTime, avgWaitTime, pLength: processes.length});
+    return {algorithm, avgExecutionTime, avgWaitTime} as MetricsResult;
   }
 
   // Ejecuta la simulación completa para un algoritmo dado

@@ -1,6 +1,9 @@
 import {Component} from '@angular/core';
-import {CommonModule, DecimalPipe, PercentPipe} from '@angular/common';
+import {CommonModule, DecimalPipe} from '@angular/common';
 import {FormsModule} from '@angular/forms';
+import {ChartModule} from 'primeng/chart';
+import {ComparisonChartComponent} from './comparison-chart.component';
+import {MetricsResult} from './metrics-result';
 
 // Define las interfaces y clases para los procesos y métricas
 interface Process {
@@ -21,13 +24,6 @@ interface GanttEvent {
   color: string;
 }
 
-interface MetricsResult {
-  algorithm: string;
-  avgWaitTime: number;
-  avgTurnaroundTime: number;
-  avgResponseTime: number;
-  cpuUtilization: number; // como se calcula
-}
 
 // Genera un color aleatorio para el diagrama de Gantt
 const getRandomColor = () => {
@@ -45,7 +41,9 @@ const getRandomColor = () => {
   imports: [
     CommonModule,
     FormsModule,
-    DecimalPipe
+    DecimalPipe,
+    ChartModule,
+    ComparisonChartComponent,
   ],
   template: `
     <div class="bg-gray-200 min-h-screen p-8 font-sans">
@@ -150,8 +148,8 @@ const getRandomColor = () => {
                     <option value="FCFS">First-Come, First-Served (FCFS)</option>
                     <option value="SJF">Shortest Job First (SJF)</option>
                     <option value="Priority">Prioridad</option>
-                    <option value="SJF_Priority">SJF con Prioridad</option>
                     <option value="RR">Round Robin</option>
+                    <option value="SJF_Priority">SJF con Prioridad</option>
                   </select>
                 </div>
                 <!-- Campo de entrada para el quantum, solo visible para Round Robin -->
@@ -174,28 +172,33 @@ const getRandomColor = () => {
             </div>
 
             <div class="bg-white shadow-lg rounded-xl overflow-hidden p-6">
-              <h2 class="text-xl font-bold mb-4">Diagrama de Gantt</h2>
-              <div class="flex h-12 border-b-2 border-gray-400 relative">
-                @for (event of ganttChart; track event.startTime) {
-                  <div
-                    [style.left.%]="(event.startTime / totalTime) * 100"
-                    [style.width.%]="((event.endTime - event.startTime) / totalTime) * 100"
-                    [style.backgroundColor]="event.color"
-                    class="absolute h-12 flex items-center justify-center text-white text-xs font-bold transition-all duration-300 ease-in-out"
-                    [class.rounded-l-lg]="$index === 0"
-                    [class.rounded-r-lg]="$index === ganttChart.length - 1"
-                  >
-                    {{ event.processName }}
+              @if (!isEnableCompareAll) {
+                <h2 class="text-xl font-bold mb-4">Diagrama de Gantt</h2>
+                <div class="flex h-12 border-b-2 border-gray-400 relative">
+                  @for (event of ganttChart; track event.startTime) {
+                    <div
+                      [style.left.%]="(event.startTime / totalTime) * 100"
+                      [style.width.%]="((event.endTime - event.startTime) / totalTime) * 100"
+                      [style.backgroundColor]="event.color"
+                      class="absolute h-12 flex items-center justify-center text-white text-xs font-bold transition-all duration-300 ease-in-out"
+                      [class.rounded-l-lg]="$index === 0"
+                      [class.rounded-r-lg]="$index === ganttChart.length - 1"
+                    >
+                      {{ event.processName }}
+                    </div>
+                    <div class="absolute -bottom-6 text-xs text-gray-600"
+                         [style.left.%]="(event.startTime / totalTime) * 100">
+                      {{ event.startTime }}
+                    </div>
+                  }
+                  <div class="absolute -bottom-6 text-xs text-gray-600" [style.left.%]="100">
+                    {{ totalTime }}
                   </div>
-                  <div class="absolute -bottom-6 text-xs text-gray-600"
-                       [style.left.%]="(event.startTime / totalTime) * 100">
-                    {{ event.startTime }}
-                  </div>
-                }
-                <div class="absolute -bottom-6 text-xs text-gray-600" [style.left.%]="100">
-                  {{ totalTime }}
                 </div>
-              </div>
+              } @else {
+                <h2 class="text-xl font-bold mb-4">Comparación</h2>
+                <app-comparison-chart [metrics]="metrics"/>
+              }
             </div>
 
             <div class="bg-white shadow-lg rounded-xl overflow-hidden p-6">
@@ -304,6 +307,8 @@ export class App {
   quantumValue = 10; // Valor por defecto del quantum
 
   // Getter para calcular el tiempo total de la simulación
+  isEnableCompareAll = false;
+
   get totalTime(): number {
     return this.ganttChart.reduce((sum, event) => sum + (event.endTime - event.startTime), 0);
   }
@@ -352,6 +357,7 @@ export class App {
     this.messages = [];
     this.metrics = [];
     this.simulationFinished = false;
+    this.isEnableCompareAll = false
   }
 
   // Elimina todos los procesos y limpia la simulación
@@ -552,11 +558,13 @@ export class App {
       return;
     }
     this.messages = [...this.messages, {severity: 'info', summary: 'Comparando todos los algoritmos.'}];
+    this.isEnableCompareAll = true
+    this.selectedAlgorithm = '';
     this.runAlgorithm('FCFS');
     this.runAlgorithm('SJF');
     this.runAlgorithm('Priority');
-    this.runAlgorithm('SJF_Priority');
     this.runAlgorithm('RR', this.quantumValue);
+    this.runAlgorithm('SJF_Priority');
     this.simulationFinished = true;
   }
 }

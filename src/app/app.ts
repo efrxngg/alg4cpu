@@ -4,9 +4,9 @@ import {FormsModule} from '@angular/forms';
 
 // Define las interfaces y clases para los procesos y métricas
 interface Process {
-  id: number; // El id es el tiempo de llegada
+  arrivalTime: number; // El id es el tiempo de llegada
   name: string;
-  duration: number;
+  burstTime: number;
   priority: number;
   startTime?: number;
   endTime?: number;
@@ -24,7 +24,7 @@ interface GanttEvent {
 interface MetricsResult {
   algorithm: string;
   avgWaitTime: number;
-  avgExecutionTime: number;
+  avgTurnaroundTime: number;
   cpuUtilization: number;
 }
 
@@ -87,10 +87,10 @@ const getRandomColor = () => {
                   </tr>
                   </thead>
                   <tbody class="bg-white divide-y divide-gray-200">
-                    @for (process of processes; track process.id) {
+                    @for (process of processes; track process.arrivalTime) {
                       <tr>
                         <td class="px-6 py-4 whitespace-nowrap">{{ process.name }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">{{ process.duration }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ process.burstTime }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">{{ process.priority }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">
                           <button (click)="removeProcess($index)" class="text-red-600 hover:text-red-900 font-medium">
@@ -223,7 +223,7 @@ const getRandomColor = () => {
                       <tr>
                         <td class="px-6 py-4 whitespace-nowrap">{{ metric.algorithm }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">{{ metric.avgWaitTime | number:'1.2-2' }} ms</td>
-                        <td class="px-6 py-4 whitespace-nowrap">{{ metric.avgExecutionTime | number:'1.2-2' }} ms</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ metric.avgTurnaroundTime | number:'1.2-2' }} ms</td>
                         <td class="px-6 py-4 whitespace-nowrap">{{ metric.cpuUtilization | percent:'1.2-2' }}</td>
                       </tr>
                     }
@@ -312,9 +312,9 @@ export class App {
   addProcess() {
     if (this.newProcessName && this.newProcessDuration) {
       const newProcess: Process = {
-        id: this.processes.length,
+        arrivalTime: this.processes.length,
         name: this.newProcessName,
-        duration: this.newProcessDuration,
+        burstTime: this.newProcessDuration,
         priority: this.newProcessPriority || 0,
       };
       this.processes = [...this.processes, newProcess];
@@ -331,9 +331,9 @@ export class App {
         const randomDuration = Math.floor(Math.random() * 50) + 1; // Duración entre 1 y 50
         const randomPriority = Math.floor(Math.random() * 10) + 1; // Prioridad entre 1 y 10
         const newProcess: Process = {
-          id: i,
+          arrivalTime: i,
           name: `P${i}`,
-          duration: randomDuration,
+          burstTime: randomDuration,
           priority: randomPriority
         };
         this.processes = [...this.processes, newProcess];
@@ -366,7 +366,7 @@ export class App {
     const processesCopy = [...processes];
     switch (algorithm) {
       case 'SJF':
-        return processesCopy.sort((a, b) => a.duration - b.duration);
+        return processesCopy.sort((a, b) => a.burstTime - b.burstTime);
       case 'Priority':
         return processesCopy.sort((a, b) => a.priority - b.priority);
       case 'SJF_Priority':
@@ -376,7 +376,7 @@ export class App {
             return a.priority - b.priority;
           }
           // Si son iguales evalua por duracion
-          return a.duration - b.duration;
+          return a.burstTime - b.burstTime;
         });
       case 'FCFS':
       case 'RR':
@@ -396,7 +396,7 @@ export class App {
 
       const startTime = currentTime;
       currentProcess.startTime = currentTime;
-      currentTime = currentTime + currentProcess.duration
+      currentTime = currentTime + currentProcess.burstTime
       currentProcess.endTime = currentTime;
       const lastEndTime = currentTime;
 
@@ -408,7 +408,7 @@ export class App {
 
   private simulateQueueRR(queue: Process[], quantun: number) {
     const auxQueue: Process[] = [...queue];
-    auxQueue.forEach((p) => p.availableDuration = p.duration);
+    auxQueue.forEach((p) => p.availableDuration = p.burstTime);
 
     let currentTime = 0;
     const currentGantt: GanttEvent[] = [];
@@ -442,10 +442,10 @@ export class App {
 
   private addProcessToGanttQueue(currentGantt: GanttEvent[], currentProcess: Process, startTime: number, endTime: number) {
     const color = currentGantt
-      .find(cgp => cgp.id === currentProcess.id)?.color || getRandomColor();
+      .find(cgp => cgp.id === currentProcess.arrivalTime)?.color || getRandomColor();
 
     currentGantt.push({
-      id: currentProcess.id,
+      id: currentProcess.arrivalTime,
       processName: currentProcess.name,
       startTime,
       endTime,
@@ -455,44 +455,43 @@ export class App {
 
 // Calcula las métricas de rendimiento y actualiza el estado
   private calculateMetricsRR(algorithm: string, processes: Process[]) {
-    console.log({processes});
-    let avgExecutionTime = 0, avgWaitTime = 0;
+    let avgTurnaroundTime = 0, avgWaitTime = 0;
 
     processes.forEach(p => {
-      // Tiempo promedio de respuesta: T = Fin - t_llegada
-      const executionTime = p.endTime! - p.id;
-      // Tiempo promedio de espera: E = T - t_ejecucion
-      const waitTime = executionTime - p.duration;
+      // Tiempo de retorno (TAT) = Tiempo de finalización - Tiempo de llegada
+      const turnaroundTime = p.endTime! - p.arrivalTime;
+      // Tiempo de espera = TAT - Burst Time
+      const waitTime = turnaroundTime - p.burstTime;
 
-      avgExecutionTime += executionTime
+      avgTurnaroundTime += turnaroundTime
       avgWaitTime += waitTime;
     });
 
-    avgExecutionTime /= processes.length;
+    avgTurnaroundTime /= processes.length;
     avgWaitTime /= processes.length;
 
     this.messages = [...this.messages, {severity: 'success', summary: `Simulación ${algorithm} finalizada.`}];
-    console.log({algorithm, avgExecutionTime, avgWaitTime, pLength: processes.length});
-    return {algorithm, avgExecutionTime, avgWaitTime} as MetricsResult;
+    console.log({algorithm, avgTurnaroundTime, avgWaitTime, pLength: processes.length});
+    return {algorithm, avgTurnaroundTime, avgWaitTime} as MetricsResult;
   }
 
   // Calcula las métricas de rendimiento y actualiza el estado
   private calculateMetrics(algorithm: string, processes: Process[]) {
-    let averageReturnTime = 0, avgWaitTime = 0;
+    let avgTurnaroundTime = 0, avgWaitTime = 0;
 
     processes.forEach(p => {
       // Tiempo promedio de respuesta
-      averageReturnTime += p.endTime!;
+      avgTurnaroundTime += p.endTime!;
       // Tiempo promedio de espera
       avgWaitTime += p.startTime!;
     });
 
-    averageReturnTime /= processes.length;
+    avgTurnaroundTime /= processes.length;
     avgWaitTime /= processes.length;
 
     this.messages = [...this.messages, {severity: 'success', summary: `Simulación ${algorithm} finalizada.`}];
-    console.log({algorithm, avgExecutionTime: averageReturnTime, avgWaitTime, pLength: processes.length});
-    return {algorithm, avgExecutionTime: averageReturnTime, avgWaitTime} as MetricsResult;
+    console.log({algorithm, avgExecutionTime: avgTurnaroundTime, avgWaitTime, pLength: processes.length});
+    return {algorithm, avgTurnaroundTime, avgWaitTime} as MetricsResult;
   }
 
   // Ejecuta la simulación completa para un algoritmo dado
@@ -509,6 +508,7 @@ export class App {
       metricsResult = this.calculateMetrics(algorithm, queue);
     }
 
+    console.log({metricsResult});
     // Calcula las métricas y actualiza el estado
     this.metrics = [...this.metrics, metricsResult];
   }

@@ -25,7 +25,8 @@ interface MetricsResult {
   algorithm: string;
   avgWaitTime: number;
   avgTurnaroundTime: number;
-  cpuUtilization: number;
+  avgResponseTime: number;
+  cpuUtilization: number; // como se calcula
 }
 
 // Genera un color aleatorio para el diagrama de Gantt
@@ -44,8 +45,7 @@ const getRandomColor = () => {
   imports: [
     CommonModule,
     FormsModule,
-    DecimalPipe,
-    PercentPipe
+    DecimalPipe
   ],
   template: `
     <div class="bg-gray-200 min-h-screen p-8 font-sans">
@@ -213,8 +213,8 @@ const getRandomColor = () => {
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tiempo de
                       Retorno Promedio
                     </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Uso de
-                      CPU
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tiempo de
+                      Respuesta Promedio
                     </th>
                   </tr>
                   </thead>
@@ -224,7 +224,7 @@ const getRandomColor = () => {
                         <td class="px-6 py-4 whitespace-nowrap">{{ metric.algorithm }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">{{ metric.avgWaitTime | number:'1.2-2' }} ms</td>
                         <td class="px-6 py-4 whitespace-nowrap">{{ metric.avgTurnaroundTime | number:'1.2-2' }} ms</td>
-                        <td class="px-6 py-4 whitespace-nowrap">{{ metric.cpuUtilization | percent:'1.2-2' }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ metric.avgResponseTime | number:'1.2-2' }} ms</td>
                       </tr>
                     }
                   </tbody>
@@ -455,35 +455,41 @@ export class App {
 
 // Calcula las métricas de rendimiento y actualiza el estado
   private calculateMetricsRR(algorithm: string, processes: Process[]) {
-    let avgTurnaroundTime = 0, avgWaitTime = 0;
+    let avgTurnaroundTime = 0, avgWaitTime = 0, avgResponseTime = 0;
 
     processes.forEach(p => {
       // Tiempo de retorno (TAT) = Tiempo de finalización - Tiempo de llegada
       const turnaroundTime = p.endTime! - p.arrivalTime;
       // Tiempo de espera = TAT - Burst Time
       const waitTime = turnaroundTime - p.burstTime;
+      // Tiempo de respuesta = CPU First Time - Arrival Time
+      const responseTime = p.startTime! - p.arrivalTime;
 
       avgTurnaroundTime += turnaroundTime
       avgWaitTime += waitTime;
+      avgResponseTime += responseTime;
     });
 
     avgTurnaroundTime /= processes.length;
     avgWaitTime /= processes.length;
+    avgResponseTime /= processes.length;
 
     this.messages = [...this.messages, {severity: 'success', summary: `Simulación ${algorithm} finalizada.`}];
     console.log({algorithm, avgTurnaroundTime, avgWaitTime, pLength: processes.length});
-    return {algorithm, avgTurnaroundTime, avgWaitTime} as MetricsResult;
+    return {algorithm, avgTurnaroundTime, avgWaitTime, avgResponseTime} as MetricsResult;
   }
 
   // Calcula las métricas de rendimiento y actualiza el estado
   private calculateMetrics(algorithm: string, processes: Process[]) {
-    let avgTurnaroundTime = 0, avgWaitTime = 0;
+    let avgTurnaroundTime = 0, avgWaitTime = 0, avgResponseTime = 0;
 
     processes.forEach(p => {
       // Tiempo promedio de respuesta
       avgTurnaroundTime += p.endTime!;
       // Tiempo promedio de espera
       avgWaitTime += p.startTime!;
+      // Tiempo de respuesta = CPU First Time - Arrival Time
+      avgResponseTime += p.startTime! - p.arrivalTime;
     });
 
     avgTurnaroundTime /= processes.length;
@@ -491,7 +497,7 @@ export class App {
 
     this.messages = [...this.messages, {severity: 'success', summary: `Simulación ${algorithm} finalizada.`}];
     console.log({algorithm, avgExecutionTime: avgTurnaroundTime, avgWaitTime, pLength: processes.length});
-    return {algorithm, avgTurnaroundTime, avgWaitTime} as MetricsResult;
+    return {algorithm, avgTurnaroundTime, avgWaitTime, avgResponseTime} as MetricsResult;
   }
 
   // Ejecuta la simulación completa para un algoritmo dado

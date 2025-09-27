@@ -143,7 +143,7 @@ const getRandomColor = () => {
                 <div class="flex-grow">
                   <label for="algorithm" class="block mb-2 font-semibold">Seleccionar Algoritmo:</label>
                   <select id="algorithm" [(ngModel)]="selectedAlgorithm" (ngModelChange)="runSimulation()"
-                          [disabled]="processes.length === 0" class="w-full p-2 border rounded-md">
+                          class="w-full p-2 border rounded-md">
                     <option value="">Seleccionar Algoritmo</option>
                     <option value="FCFS">First-Come, First-Served (FCFS)</option>
                     <option value="SJF">Shortest Job First (SJF)</option>
@@ -257,38 +257,7 @@ const getRandomColor = () => {
       </div>
     </div>
   `,
-  styles: [`
-    :host ::ng-deep {
-      .p-card .p-card-header {
-        padding: 1.5rem;
-        background-color: #f3f4f6;
-        border-bottom: 1px solid #e5e7eb;
-      }
-
-      .p-card .p-card-title {
-        font-weight: 700;
-        color: #1f2937;
-      }
-
-      .p-button {
-        transition: all 0.2s ease-in-out;
-        border-radius: 0.75rem;
-      }
-
-      .p-button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-      }
-
-      .p-inputtext, .p-dropdown {
-        border-radius: 0.75rem;
-      }
-
-      .p-datatable-header, .p-datatable-thead > tr > th {
-        background-color: #e5e7eb !important;
-      }
-    }
-  `],
+  styles: [],
 })
 export class App {
   // Estado de la aplicación
@@ -335,14 +304,20 @@ export class App {
       for (let i = 0; i < this.randomProcessesCount; i++) {
         const randomDuration = Math.floor(Math.random() * 50) + 1; // Duración entre 1 y 50
         const randomPriority = Math.floor(Math.random() * 10) + 1; // Prioridad entre 1 y 10
+        const idx = this.processes.length;
         const newProcess: Process = {
-          arrivalTime: i,
-          name: `P${i}`,
+          arrivalTime: idx,
+          name: `P${idx}`,
           burstTime: randomDuration,
           priority: randomPriority
         };
         this.processes = [...this.processes, newProcess];
       }
+    }
+
+    // this.runSimulation()
+    if (this.isEnableCompareAll) {
+      this.compareAll();
     }
   }
 
@@ -480,7 +455,10 @@ export class App {
     avgWaitTime /= processes.length;
     avgResponseTime /= processes.length;
 
-    this.messages = [...this.messages, {severity: 'success', summary: `Simulación ${algorithm} finalizada.`}];
+    this.messages = [...this.messages, {
+      severity: 'success',
+      summary: `Simulación ${algorithm} quantum ${this.quantumValue} finalizada.`
+    }];
     console.log({algorithm, avgTurnaroundTime, avgWaitTime, pLength: processes.length});
     return {algorithm, avgTurnaroundTime, avgWaitTime, avgResponseTime} as MetricsResult;
   }
@@ -548,6 +526,7 @@ export class App {
 
   // Compara todos los algoritmos
   compareAll() {
+    console.log('[compareAll]')
     this.clearSimulationOutput();
     if (this.quantumValue <= 0) {
       this.messages = [...this.messages, {

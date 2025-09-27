@@ -1,4 +1,4 @@
-import {Component, Input, OnInit} from '@angular/core';
+import {Component, Input, OnChanges, OnInit, SimpleChanges} from '@angular/core';
 import {ChartModule} from 'primeng/chart';
 import {MetricsResult} from './metrics-result';
 
@@ -10,7 +10,7 @@ import {MetricsResult} from './metrics-result';
     <p-chart type="bar" [data]="chartData" [options]="chartOptions"></p-chart>
   `
 })
-export class ComparisonChartComponent implements OnInit {
+export class ComparisonChartComponent implements OnInit, OnChanges {
   chartData: any;
   chartOptions: any;
 
@@ -19,8 +19,13 @@ export class ComparisonChartComponent implements OnInit {
   constructor() {
   }
 
+  ngOnChanges(changes: SimpleChanges): void {
+    console.log('[ngOnChanges]', changes);
+    this.ngOnInit();
+  }
+
   ngOnInit() {
-    console.log('metrics: ', this.metrics)
+    console.log('[ngOnInit]');
 
     const labels = this.metrics.map(m => m.algorithm);
     const espera = this.metrics.map(m => m.avgWaitTime);
@@ -33,19 +38,19 @@ export class ComparisonChartComponent implements OnInit {
         {
           label: 'Tiempo de Espera Promedio (ms)',
           data: espera,
-          backgroundColor: 'rgba(54, 162, 235, 0.7)',
+          backgroundColor: 'rgb(2,2,2)',
           borderWidth: 1
         },
         {
           label: 'Tiempo de Retorno Promedio (ms)',
           data: retorno,
-          backgroundColor: 'rgba(255, 206, 86, 0.7)',
+          backgroundColor: 'rgb(154,162,176)',
           borderWidth: 1
         },
         {
           label: 'Tiempo de Respuesta Promedio (ms)',
           data: respuesta,
-          backgroundColor: 'rgba(75, 192, 192, 0.7)',
+          backgroundColor: 'rgb(170,170,170)',
           borderWidth: 1
         }
       ]
